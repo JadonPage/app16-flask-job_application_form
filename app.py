@@ -1,13 +1,25 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, flash
 from flask_sqlalchemy import SQLAlchemy
+from flask_mail import Mail, Message
 
 from datetime import datetime
+import keyring
+
+APP_PASS = keyring.get_password("Business_Gmail_Key", "Business_Gmail_Key")
 
 app = Flask(__name__)
 
 app.config["SECRET_KEY"] = "myapp123"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///data.db"
+app.config["MAIL_SERVER"] = "smtp.gmail.com"
+app.config["MAIL_PORT"] = 465
+app.config["MAIL_USE_SSL"] = True
+app.config["MAIL_USERNAME"] = "jadonpage.business@gmail.com"
+app.config["MAIL_PASSWORD"] = APP_PASS
+
 db = SQLAlchemy(app)
+
+mail = Mail(app)
 
 
 class Form(db.Model):
@@ -33,6 +45,20 @@ def index():
                     email=email, date=date_obj, occupation=occupation)
         db.session.add(form)
         db.session.commit()
+
+        message_body = (
+           f"Thank you for your submission, {first_name.capitalize()}. "
+           f"Here is the information you submitted: \nFirst Name: {first_name}\n"
+           f"Last Name: {last_name}\nDate: {date}\nOccupation Status: {occupation.capitalize()}\n"
+           f"Thank You!"
+        )
+        message = Message(subject="New form submission",
+                          sender=app.config["MAIL_USERNAME"],
+                          recipients=[email],
+                          body=message_body)
+        mail.send(message)
+
+        flash(f"{first_name.capitalize()}, your form was submitted successfully!", "success")
 
     return render_template("index.html")
 
